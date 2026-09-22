@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+/* ============================================
+   Home Hub — 深色智能家居主题变量
+   ============================================ */
+
+@theme {
+  /* 背景色阶 */
+  --color-hub-bg-deep: #070809;
+  --color-hub-bg-base: #0a0c10;
+  --color-hub-bg-elevated: #0f1117;
+  --color-hub-bg-card: #141720;
+  --color-hub-bg-hover: #1a1d2e;
+
+  /* 玻璃拟态 */
+  --color-glass-bg: rgba(20, 23, 32, 0.65);
+  --color-glass-border: rgba(255, 255, 255, 0.06);
+  --color-glass-border-hover: rgba(255, 255, 255, 0.12);
+
+  /* 主色调 — 青蓝渐变系 */
+  --color-accent-primary: #06b6d4;
+  --color-accent-secondary: #22d3ee;
+  --color-accent-violet: #8b5cf6;
+  --color-accent-glow: rgba(6, 182, 212, 0.25);
+
+  /* 状态色 */
+  --color-status-online: #22c55e;
+  --color-status-offline: #ef4444;
+  --color-status-warning: #f59e0b;
+
+  /* 文字色阶 */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  /* 组件 token（shadcn 兼容命名） */
+  --color-background: #070809;
+  --color-foreground: #f1f5f9;
+  --color-card: #12151d;
+  --color-card-foreground: #f1f5f9;
+  --color-popover: #10131b;
+  --color-popover-foreground: #f1f5f9;
+  --color-muted: #161a24;
+  --color-muted-foreground: #8b95a7;
+  --color-accent: #1a2030;
+  --color-accent-foreground: #f1f5f9;
+  --color-primary: #06b6d4;
+  --color-primary-foreground: #052e36;
+  --color-secondary: #1a2030;
+  --color-secondary-foreground: #cbd5e1;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-input: rgba(255, 255, 255, 0.1);
+  --color-ring: #22d3ee;
+
+  /* 字体 */
+  --font-sans: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei',
+    'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* 圆角 */
+  --radius-card: 16px;
+  --radius-panel: 12px;
+  --radius-button: 8px;
+
+  /* 动画 */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================
+   全局样式
+   ============================================ */
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-hub-bg-deep);
+  color: var(--color-text-primary);
+  overflow-x: hidden;
+}
+
+/* 玻璃拟态卡片基类 */
+.glass-card {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--radius-card);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease,
+    transform 0.25s var(--ease-out-expo);
+}
+
+.glass-card:hover {
+  border-color: var(--color-glass-border-hover);
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.05);
+}
+
+/* 发光边框效果 */
+.glow-border {
+  position: relative;
+}
+
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(6, 182, 212, 0.3),
+    transparent 50%,
+    rgba(34, 211, 238, 0.15)
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* 渐变文字 */
+.text-gradient {
+  background: linear-gradient(100deg, #22d3ee 0%, #818cf8 55%, #c084fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+/* 页面过渡动画 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.25s var(--ease-out-expo), transform 0.25s var(--ease-out-expo);
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* 天气图标漂浮动画 */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* 状态灯呼吸动画 */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
