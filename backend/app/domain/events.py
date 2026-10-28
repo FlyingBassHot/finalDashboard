@@ -6,9 +6,12 @@
 
 import logging
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+from app.domain.device import DeviceDescriptor
+from app.domain.entity import EntityDescriptor
 from app.domain.state import EntityState
 from app.domain.topology import Neighbor
 
@@ -18,7 +21,7 @@ class DomainEvent:
     """领域事件基类。"""
 
     occurred_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     source: str = ""
     """来源集成名。"""
@@ -31,6 +34,20 @@ class StateChangedEvent(DomainEvent):
     entity_id: str = ""
     old: EntityState | None = None
     new: EntityState | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DeviceRegisteredEvent(DomainEvent):
+    """集成注册/更新了一台设备(供持久化与北向消费)。"""
+
+    device: DeviceDescriptor | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EntityRegisteredEvent(DomainEvent):
+    """集成注册/更新了一个实体(供持久化与北向消费)。"""
+
+    entity: EntityDescriptor | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -56,24 +73,27 @@ class EventBus:
     """进程内异步事件总线(顺序分发,handler 异常不中断)。"""
 
     def __init__(self) -> None:
-        self._handlers: list[EventHandler] = []
-        self._logger = logging.getLogger(
-            "app.domain.events",
-        )
+        self._handlers: list[tuple[EventHandler, type[DomainEvent] | None]] = []
+
+        self._logger = logging.getLogger("app.domain.events")
 
     def subscribe(
         self,
         handler: EventHandler,
+        event_type: type[DomainEvent] | None = None,
     ) -> Callable[[], None]:
-        """订阅事件,返回退订函数。"""
+        """订阅事件,返回退订函数。
 
-        self._handlers.append(handler)
+        ``event_type`` 为空时接收全部事件;否则只接收该类型
+        (含子类)的事件。
+        """
+
+        entry = (handler, event_type)
+        self._handlers.append(entry)
 
         def unsubscribe() -> None:
-            try:
-                self._handlers.remove(handler)
-            except ValueError:
-                pass
+            with suppress(ValueError):
+                self._handlers.remove(entry)
 
         return unsubscribe
 
@@ -83,7 +103,10 @@ class EventBus:
     ) -> None:
         """顺序分发给所有订阅者。"""
 
-        for handler in list(self._handlers):
+        for handler, event_type in list(self._handlers):
+            if event_type is not None and not isinstance(event, event_type):
+                continue
+
             try:
                 await handler(event)
 

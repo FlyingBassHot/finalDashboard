@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +7,6 @@ from app.models.weather_current import WeatherCurrent
 
 
 class WeatherCurrentRepository:
-
     async def upsert(
         self,
         db: AsyncSession,
@@ -15,19 +14,13 @@ class WeatherCurrentRepository:
         data: dict,
     ):
 
-        result = await db.execute(
-            select(WeatherCurrent)
-            .where(
-                WeatherCurrent.id == 1
-            )
-        )
+        result = await db.execute(select(WeatherCurrent).where(WeatherCurrent.id == 1))
 
         record = result.scalar_one_or_none()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if record is None:
-
             record = WeatherCurrent(
                 id=1,
                 location_id=location_id,
@@ -38,7 +31,6 @@ class WeatherCurrentRepository:
             db.add(record)
 
         else:
-
             record.location_id = location_id
 
             for key, value in data.items():
@@ -55,11 +47,6 @@ class WeatherCurrentRepository:
         db: AsyncSession,
     ):
 
-        result = await db.execute(
-            select(WeatherCurrent)
-            .where(
-                WeatherCurrent.id == 1
-            )
-        )
+        result = await db.execute(select(WeatherCurrent).where(WeatherCurrent.id == 1))
 
         return result.scalar_one_or_none()

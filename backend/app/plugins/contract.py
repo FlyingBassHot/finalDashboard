@@ -15,12 +15,18 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Protocol
 
-from app.domain.capability import Capability
+from app.domain.capability import (
+    CONTROL_CAPABILITIES,
+    Capability,
+)
 from app.domain.device import DeviceDescriptor
 from app.domain.entity import EntityDescriptor
 from app.domain.state import EntityState
 from app.domain.topology import Neighbor
-from app.plugins.errors import UnsupportedActionError
+from app.plugins.errors import (
+    IntegrationConfigError,
+    UnsupportedActionError,
+)
 from app.plugins.manifest import IntegrationManifest
 
 
@@ -59,6 +65,9 @@ class IntegrationContext(Protocol):
 
     config: Mapping[str, Any]
     logger: logging.Logger
+
+    instance: str
+    """集成实例名（框架注入，用于隔离同一集成的多个实例）。"""
 
     async def register_device(
         self,
@@ -143,8 +152,37 @@ class PollingIntegration(Integration):
     """第一类只读集成的基类(周期轮询,零写能力)。
 
     继承本类即声明:该集成只会采集,不会也不允许下发任何
-    动作 —— execute_action 在此被永久封死。
+    动作。这里做两层强制:
+
+    1. 子类的 manifest 不得声明任何写能力(类创建时即报错);
+    2. ``execute_action`` 被永久覆写为拒绝,子类即使再覆写,
+       ActionGateway 也会因缺少清单能力而拒绝。
     """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
+        manifest = getattr(cls, "manifest", None)
+
+        if isinstance(manifest, IntegrationManifest):
+            control_capabilities = manifest.capabilities & CONTROL_CAPABILITIES
+
+            if control_capabilities:
+                names = ", ".join(
+                    sorted(capability.value for capability in control_capabilities),
+                )
+
+                raise IntegrationConfigError(
+                    f"只读集成 {manifest.name} 不能声明写能力: {names}",
+                )
+
+    async def execute_action(
+        self,
+        request: ActionRequest,
+    ) -> ActionResult:
+        raise UnsupportedActionError(
+            f"只读集成 {type(self).__name__} 不允许执行任何动作",
+        )
 
     @abstractmethod
     async def poll(self) -> None:

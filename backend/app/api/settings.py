@@ -1,11 +1,11 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-    Query,
-)
+import logging
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.location.amap_district import (
+    AmapConfigError,
     AmapDistrictClient,
 )
 from app.core.database import get_db
@@ -14,45 +14,30 @@ from app.schemas.settings import (
     HomeSettingsUpdate,
     LocationOption,
 )
-from app.services.settings_service import (
-    SettingsService,
-)
-from app.services.weather_service import (
-    WeatherService,
-)
-from app.utils.coordinate import (
-    gcj02_to_wgs84,
-)
+from app.services.settings_service import SettingsService
+from app.services.weather_service import WeatherService
+from app.utils.coordinate import gcj02_to_wgs84
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/settings",
     tags=["Settings"],
 )
 
-
 settings_service = SettingsService()
-
 weather_service = WeatherService()
-
 amap_client = AmapDistrictClient()
 
 
-@router.get(
-    "/home",
-    response_model=HomeSettingsResponse,
-)
+@router.get("/home", response_model=HomeSettingsResponse)
 async def get_home_settings(
     db: AsyncSession = Depends(get_db),
 ):
-
     return await settings_service.get(db)
 
 
-@router.get(
-    "/locations",
-    response_model=list[LocationOption],
-)
+@router.get("/locations", response_model=list[LocationOption])
 async def search_locations(
     keywords: str = Query(
         ...,
@@ -66,44 +51,44 @@ async def search_locations(
         description="返回下级行政区层数（级联选择时传 1）",
     ),
 ):
+    try:
+        districts = await amap_client.query(
+            keywords,
+            subdistrict=subdistrict,
+        )
 
-    districts = await amap_client.query(
-        keywords,
-        subdistrict=subdistrict,
-    )
+    except AmapConfigError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        ) from exc
 
-    return [
-        _to_option(item)
-        for item in districts
-    ]
+    except (httpx.HTTPError, RuntimeError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="AMap district service unavailable",
+        ) from exc
+
+    return [_to_option(item) for item in districts]
 
 
-@router.put(
-    "/home",
-    response_model=HomeSettingsResponse,
-)
+@router.put("/home", response_model=HomeSettingsResponse)
 async def update_home_settings(
     data: HomeSettingsUpdate,
     db: AsyncSession = Depends(get_db),
 ):
+    settings = await settings_service.update(db, data.model_dump())
 
-    settings = await settings_service.update(
-        db,
-        data.model_dump(),
-    )
-
-    # 地点可能已变化，立即刷新一次天气
-    # （失败不阻塞设置保存，调度器稍后会自动重试）
+    # 地点可能已变化，立即刷新一次天气；
+    # 失败不影响设置保存结果，调度器稍后会自动重试。
     try:
         await weather_service.refresh(db)
 
-    except Exception as e:
-        print(
-            f"weather refresh after "
-            f"settings update fail: {e}"
+    except Exception:
+        logger.warning(
+            "weather refresh after settings update failed",
+            exc_info=True,
         )
-
-        await db.rollback()
 
     return settings
 
@@ -131,22 +116,14 @@ def _parse_center(
 def _to_option(district: dict) -> LocationOption:
     """高德行政区原始数据 → LocationOption"""
 
-    gcj02_lng, gcj02_lat = _parse_center(
-        district.get("center")
-    )
+    gcj02_lng, gcj02_lat = _parse_center(district.get("center"))
 
     longitude, latitude = None, None
 
     if gcj02_lng is not None and gcj02_lat is not None:
-        longitude, latitude = gcj02_to_wgs84(
-            gcj02_lng,
-            gcj02_lat,
-        )
+        longitude, latitude = gcj02_to_wgs84(gcj02_lng, gcj02_lat)
 
-    children = [
-        _to_option(item)
-        for item in district.get("districts") or []
-    ]
+    children = [_to_option(item) for item in district.get("districts") or []]
 
     return LocationOption(
         adcode=district.get("adcode", ""),

@@ -48,14 +48,23 @@ class DeviceDescriptor:
     model: str | None = None
     sw_version: str | None = None
 
+    identity: str | None = None
+    """稳定硬件标识,如 "mac:aa:bb:cc:dd:ee:ff" / "serial:ABC123"。
+
+    用于拓扑匹配与未来多协议归并;同一条目在不同集成间保持一致,
+    但当前不据此合并 device_id(见 docs/DECISIONS.md ADR-001)。
+    """
+
     integration: str = ""
     """注册后由框架填充的集成名(组成 device_id 用)。"""
 
+    instance: str = ""
+    """集成实例名(由框架在注册时填充),用于隔离同一集成的多个实例。"""
+
     @property
     def device_id(self) -> str:
-        """全局唯一 ID:<integration>.<key>"""
+        """全局唯一 ID:<integration>.<instance>.<key>"""
 
-        if self.integration:
-            return f"{self.integration}.{self.key}"
-
-        return self.key
+        return ".".join(
+            part for part in [self.integration, self.instance, self.key] if part
+        )

@@ -53,7 +53,7 @@ domain(统一领域模型:Device / Entity / Capability / Event)
 
 ## 5. 目录结构
 
-### backend(现有代码未动,新增骨架见各目录 README)
+### backend
 
 ```
 backend/app/
@@ -100,25 +100,40 @@ frontend/src/
     └── alerts/        # ★ 告警中心
 ```
 
-## 6. REST 草案(待实现)
+## 6. REST
 
-- `GET /api/devices` / `GET /api/devices/{id}`
-- `GET /api/entities` / `GET /api/entities/{id}` / `GET /api/entities/{id}/history`
-- `POST /api/entities/{id}/actions`(唯一写入口,走 action_gateway)
-- 集成实例 CRUD:`/api/integrations`
-- `GET /api/topology` / `GET /api/alerts` / `POST /api/alerts/webhook`(Alertmanager)
-- 导出:`GET /api/export/wot`、`GET /metrics`(Prometheus 文本)
-- 实时:WS 或 SSE(待方案确认)
+已实现：
+
+- `GET /api/devices` / `GET /api/devices/{device_id}`
+- `GET /api/entities` / `GET /api/entities/{entity_id}`
+- `GET /api/entities/{entity_id}/state`
+- `GET /api/entities/{entity_id}/history`
+- `GET /api/topology`
+- `POST /api/alerts/webhook` / `GET /api/alerts` / `GET /api/alerts/{fingerprint}`
+- `GET /metrics`（Prometheus 文本）
+- `GET /api/integrations/manifests`
+- `GET/POST /api/integrations`、`GET/PATCH/DELETE /api/integrations/{id}`
+- 天气 / 设置 / 授时（见 backend/README.md）
+
+规划：
+
+- `POST /api/entities/{id}/actions`（唯一写入口，走 action_gateway）
+- `GET /api/export/wot`
+- 实时：WS 或 SSE（待方案确认）
 
 ## 7. 演进路线(现有代码零破坏)
 
 1. **✅ 已完成**:骨架与领域基类(`domain` 全套运行时抽象 +
-   `plugins` 契约 / 注册表 / 目录 / 上下文 / ActionGateway),
-   冒烟测试 `backend/test/test_contract.py`;现有 weather / settings / time 模块照常运行。
-2. **下一步**:持久化层(设备 / 实体 / 集成实例 ORM 表 + repositories)与
-   实例运行器(轮询调度,复用 APScheduler)。
-3. **首个集成**:`integrations/openwrt`(P0,只读)验证完整链路;
-   第二类(`mqtt`)延后,专注第一类设备。
-4. **存量迁移**:`collectors/`(weather / amap)改造为正式集成,走同一契约;
-   `frontend/src/data/devices.ts` mock 替换为真实 API(后端全部结束后再动前端)。
-5. **外挂接入**:export/prometheus → Alertmanager → alerting webhook 闭环。
+   `plugins` 契约 / 注册表 / 目录 / 上下文 / ActionGateway)。
+2. **✅ 已完成**:持久化层(设备 / 实体 / 集成实例 / 最新状态 ORM + repositories)、
+   状态表、实例运行器(轮询调度、异常隔离、健康记录)、集成实例 CRUD 与
+   设备/实体只读 API。
+3. **✅ 已完成**:首个集成 `integrations/openwrt`(P0,只读),
+   已用 MockTransport 覆盖 ubus 报文;待真机验证。
+4. **✅ 已完成**:`topology`(邻居聚合 + 图 API)与 `history`
+   (变化才写 + 7 天 TTL + 定时清理)。
+5. **✅ 已完成**:`export/prometheus`(`/metrics`) → Alertmanager →
+   `alerting` webhook 落库与查询闭环。
+6. **下一步**:第二类集成 `mqtt` / `homeassistant`，需先补订阅型集成基类。
+7. **存量迁移**:`collectors/`(weather / amap)改造为正式集成,走同一契约;
+   `frontend/src/data/devices.ts` mock 替换为真实 API。

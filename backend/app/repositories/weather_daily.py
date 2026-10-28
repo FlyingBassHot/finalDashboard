@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +7,6 @@ from app.models.weather_daily import WeatherDaily
 
 
 class WeatherDailyRepository:
-
     async def replace_forecast(
         self,
         db: AsyncSession,
@@ -16,17 +15,12 @@ class WeatherDailyRepository:
     ):
 
         await db.execute(
-            delete(WeatherDaily)
-            .where(
-                WeatherDaily.location_id
-                == location_id
-            )
+            delete(WeatherDaily).where(WeatherDaily.location_id == location_id)
         )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for forecast in forecasts:
-
             record = WeatherDaily(
                 location_id=location_id,
                 **forecast,
@@ -45,13 +39,8 @@ class WeatherDailyRepository:
 
         result = await db.execute(
             select(WeatherDaily)
-            .where(
-                WeatherDaily.location_id
-                == location_id
-            )
-            .order_by(
-                WeatherDaily.forecast_date
-            )
+            .where(WeatherDaily.location_id == location_id)
+            .order_by(WeatherDaily.forecast_date)
         )
 
         return result.scalars().all()

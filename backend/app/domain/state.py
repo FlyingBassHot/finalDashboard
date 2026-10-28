@@ -1,8 +1,9 @@
 """实体状态 —— 不可变值对象。"""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Mapping
+from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,5 +31,5 @@ class EntityState:
             object.__setattr__(
                 self,
                 "observed_at",
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
             )

@@ -1,65 +1,52 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
-from sqlalchemy import Date, DateTime, Integer, Numeric, UniqueConstraint
+from sqlalchemy import Date, Integer, Numeric, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.db_types import UTCDateTime
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class WeatherDaily(Base):
     __tablename__ = "weather_daily"
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        autoincrement=True,
-    )
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    location_id: Mapped[int] = mapped_column(
-        nullable=False,
-    )
+    location_id: Mapped[int] = mapped_column(nullable=False)
 
-    forecast_date: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
-    )
+    forecast_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    weather_code: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-    )
+    weather_code: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    temperature_max: Mapped[float] = mapped_column(
-        Numeric(5, 2),
-        nullable=False,
-    )
-
-    temperature_min: Mapped[float] = mapped_column(
-        Numeric(5, 2),
-        nullable=False,
-    )
+    temperature_max: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
+    temperature_min: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
 
     precipitation_probability: Mapped[float | None] = mapped_column(
         Numeric(5, 2),
         nullable=True,
     )
-
     precipitation_sum: Mapped[float | None] = mapped_column(
         Numeric(7, 2),
         nullable=True,
     )
 
     sunrise: Mapped[datetime | None] = mapped_column(
-        DateTime,
+        UTCDateTime,
         nullable=True,
     )
-
     sunset: Mapped[datetime | None] = mapped_column(
-        DateTime,
+        UTCDateTime,
         nullable=True,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        UTCDateTime,
+        default=_utcnow,
+        onupdate=_utcnow,
         nullable=False,
     )
 

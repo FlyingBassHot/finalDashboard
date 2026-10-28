@@ -3,9 +3,11 @@
 职责(按顺序):
 
 1. 集成级白名单:动作能力必须包含在集成 manifest 中;
-2. 实体级白名单:目标实体必须声明该能力,且必须存在于目录;
-3. 转发给集成执行,统一异常归一;
-4. 全程审计(允许 / 拒绝 / 失败都留痕)。
+2. 实体存在性:目标实体必须已注册在目录中;
+3. 归属校验:目标实体必须属于发起动作的集成;
+4. 实体级白名单:目标实体必须声明该能力;
+5. 转发给集成执行,统一异常归一;
+6. 全程审计(允许 / 拒绝 / 失败都留痕)。
 
 边界哲学:第一类设备只读集成 manifest 只声明 READONLY,
 任何动作请求在第一关就被类型级拒绝 —— 不依赖实现者自觉。
@@ -14,8 +16,7 @@
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Mapping
+from datetime import UTC, datetime
 
 from app.domain.capability import Capability
 from app.plugins.catalog import EntityCatalog
@@ -53,7 +54,7 @@ class ActionAuditRecord:
             object.__setattr__(
                 self,
                 "occurred_at",
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
             )
 
 
@@ -98,9 +99,7 @@ class ActionGateway:
         - ActionExecutionError:执行失败 / 实体不存在
         """
 
-        manifest: IntegrationManifest = (
-            integration.manifest
-        )
+        manifest: IntegrationManifest = integration.manifest
 
         # 第一关:集成级能力白名单
         if request.capability not in manifest.capabilities:
@@ -116,8 +115,7 @@ class ActionGateway:
             )
 
             raise UnsupportedActionError(
-                f"集成 {manifest.name} 未声明能力 "
-                f"{request.capability.value},拒绝执行",
+                f"集成 {manifest.name} 未声明能力 {request.capability.value},拒绝执行",
             )
 
         # 第二关:实体必须存在且声明该能力
@@ -141,6 +139,23 @@ class ActionGateway:
                 f"实体不存在: {request.entity_id}",
             )
 
+        if entity.integration != manifest.name:
+            self._audit(
+                ActionAuditRecord(
+                    integration=manifest.name,
+                    entity_id=request.entity_id,
+                    action=request.action,
+                    capability=request.capability,
+                    outcome="rejected:entity-owner",
+                    message=f"实体属于集成 {entity.integration!r}",
+                ),
+            )
+
+            raise UnsupportedActionError(
+                f"实体 {request.entity_id} 属于集成 "
+                f"{entity.integration!r},不允许由 {manifest.name} 操作",
+            )
+
         if request.capability not in entity.capabilities:
             self._audit(
                 ActionAuditRecord(
@@ -154,8 +169,7 @@ class ActionGateway:
             )
 
             raise UnsupportedActionError(
-                f"实体 {request.entity_id} 未声明能力 "
-                f"{request.capability.value}",
+                f"实体 {request.entity_id} 未声明能力 {request.capability.value}",
             )
 
         # 转发执行(异常归一 + 审计)

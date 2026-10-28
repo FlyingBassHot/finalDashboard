@@ -9,8 +9,9 @@ from app.domain.capability import Capability
 class EntityDescriptor:
     """实体声明(仅静态元信息,运行时状态见 EntityState)。
 
-    全局唯一 ID 由三段组成:`<integration>.<device_key>.<key>`,
-    其中 integration 段由框架在注册时填充(见 IntegrationContext)。
+    全局唯一 ID 由四段组成:`<integration>.<instance>.<device_key>.<key>`,
+    其中 integration / instance 由框架在注册时填充(见 IntegrationContext)。
+    单实例场景下 instance 为空时退化为三段式。
     """
 
     key: str
@@ -25,9 +26,7 @@ class EntityDescriptor:
     device_key: str = ""
     """所属设备的 key(集成内)。空 = 挂在集成自身虚拟设备下。"""
 
-    capabilities: frozenset[Capability] = frozenset(
-        {Capability.READONLY}
-    )
+    capabilities: frozenset[Capability] = frozenset({Capability.READONLY})
     """该实体可被施加的操作类别,默认只读。"""
 
     unit: str | None = None
@@ -39,16 +38,26 @@ class EntityDescriptor:
     integration: str = ""
     """注册后由框架填充的集成名(组成 entity_id 用)。"""
 
+    instance: str = ""
+    """集成实例名(由框架在注册时填充)。"""
+
+    @property
+    def device_id(self) -> str:
+        """所属设备 ID:<integration>.<instance>.<device_key>"""
+
+        return ".".join(
+            part for part in [self.integration, self.instance, self.device_key] if part
+        )
+
     @property
     def entity_id(self) -> str:
-        """全局唯一 ID:<integration>.<device_key>.<key>"""
+        """全局唯一 ID:<integration>.<instance>.<device_key>.<key>"""
 
         parts = [
             self.integration,
+            self.instance,
             self.device_key,
             self.key,
         ]
 
-        return ".".join(
-            part for part in parts if part
-        )
+        return ".".join(part for part in parts if part)

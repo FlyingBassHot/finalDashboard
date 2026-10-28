@@ -1,7 +1,7 @@
 [project]
-name = "backend"
+name = "home-hub-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Home Hub 后端：统一设备抽象 + 插件化家庭设备集成"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,3 +13,28 @@ dependencies = [
     "sqlalchemy>=2.0.51",
     "uvicorn>=0.52.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# B008: FastAPI 的 Depends()/Query() 默认值属于框架惯用写法
+# B027: Integration 的可选钩子允许空实现
+ignore = ["B008", "B027"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

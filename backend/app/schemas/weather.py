@@ -26,6 +26,7 @@ class CurrentWeatherResponse(BaseModel):
     weather_code: int
     is_day: bool
 
+    # 以下时间均以家庭时区输出（带偏移量）
     observed_at: datetime
 
 
@@ -50,3 +51,6 @@ class WeatherResponse(BaseModel):
     current: CurrentWeatherResponse
 
     daily: list[DailyForecastResponse]
+
+    fetched_at: datetime | None = None
+    """最近一次成功采集的时间（家庭时区）。"""

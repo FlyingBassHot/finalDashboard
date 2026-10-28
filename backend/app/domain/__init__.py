@@ -16,7 +16,9 @@ from app.domain.device import (
 from app.domain.entity import EntityDescriptor
 from app.domain.events import (
     DeviceAvailabilityEvent,
+    DeviceRegisteredEvent,
     DomainEvent,
+    EntityRegisteredEvent,
     EventBus,
     NeighborReportEvent,
     StateChangedEvent,
@@ -30,8 +32,10 @@ __all__ = [
     "DeviceAvailabilityEvent",
     "DeviceCategory",
     "DeviceDescriptor",
+    "DeviceRegisteredEvent",
     "DomainEvent",
     "EntityDescriptor",
+    "EntityRegisteredEvent",
     "EntityState",
     "EventBus",
     "Neighbor",

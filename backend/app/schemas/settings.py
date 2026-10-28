@@ -1,16 +1,17 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+
+from app.utils.time import to_local
 
 
 class LocationOption(BaseModel):
-
     adcode: str
     name: str
     level: str
 
     citycode: str | None = None
-
     center: str | None = None
 
     # 高德原始坐标（GCJ-02），已解析为数值
@@ -24,17 +25,14 @@ class LocationOption(BaseModel):
     timezone: str = "Asia/Shanghai"
 
     # 下级行政区（subdistrict=1 时返回，用于级联选择）
-    children: list["LocationOption"] = []
+    children: list["LocationOption"] = Field(default_factory=list)
 
 
 LocationOption.model_rebuild()
 
 
 class HomeSettingsResponse(BaseModel):
-
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
 
@@ -62,25 +60,43 @@ class HomeSettingsResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @field_serializer("created_at", "updated_at")
+    def _serialize_local_time(self, value: datetime) -> str:
+        """与天气接口保持一致：时间以家庭时区输出。"""
+
+        return to_local(value, self.timezone).isoformat()
+
 
 class HomeSettingsUpdate(BaseModel):
+    home_name: str = Field(min_length=1, max_length=100)
 
-    home_name: str
+    country: str = Field(max_length=100)
+    province: str = Field(max_length=100)
+    city: str = Field(max_length=100)
+    district: str | None = Field(default=None, max_length=100)
 
-    country: str
+    adcode: str = Field(min_length=1, max_length=20)
 
-    province: str
-    city: str
-    district: str | None = None
+    gcj02_latitude: float = Field(ge=-90, le=90)
+    gcj02_longitude: float = Field(ge=-180, le=180)
 
-    adcode: str
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
 
-    gcj02_latitude: float
-    gcj02_longitude: float
+    timezone: str = Field(min_length=1, max_length=64)
 
-    latitude: float
-    longitude: float
+    location_source: str = Field(
+        default="amap_district",
+        max_length=32,
+    )
 
-    timezone: str
+    @field_validator("timezone")
+    @classmethod
+    def _validate_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
 
-    location_source: str = "amap_district"
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"非法时区: {value}") from exc
+
+        return value

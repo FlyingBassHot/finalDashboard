@@ -1,7 +1,7 @@
 """集成清单 —— 每个集成注册时必须提供的自描述元数据。"""
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from app.domain.capability import Capability
 from app.domain.device import DeviceCategory
@@ -26,9 +26,7 @@ class IntegrationManifest:
 
     description: str = ""
 
-    capabilities: frozenset[Capability] = frozenset(
-        {Capability.READONLY}
-    )
+    capabilities: frozenset[Capability] = frozenset({Capability.READONLY})
     """集成整体能力边界。只读集成只声明 READONLY。"""
 
     supported_categories: frozenset[DeviceCategory] = frozenset(

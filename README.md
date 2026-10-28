@@ -8,12 +8,16 @@ ONVIF / DSM / Wake-on-LAN)。状态检测、性能监控、网络拓扑、事件
 
 ## 快速开始
 
-- 后端:`cd backend && uv sync && .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000`
+- 后端:`cd backend && uv sync && cp .env.example .env && uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
 - 前端:`cd frontend && npm install && npm run dev`(Vite 代理 `/api` → 127.0.0.1:8000)
+
+> 后端测试:`cd backend && uv run pytest`;静态检查:`uv run ruff check app tests`。
+> `.env`、`data/*.db` 与日志均为本地文件,不会提交到仓库。
 
 ## 文档导航
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 架构决策与目录总览(**先读这个**)
+- [docs/DECISIONS.md](docs/DECISIONS.md) — 开发决策记录(设备身份 / WoL / 存储)
 - [backend/README.md](backend/README.md) — 后端模块与 API
 - [frontend/README.md](frontend/README.md) — 前端结构与对接说明
 - 集成契约与各集成边界:`backend/app/integrations/README.md`

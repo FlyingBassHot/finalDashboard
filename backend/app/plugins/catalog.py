@@ -57,6 +57,19 @@ class EntityCatalog:
     def all_entities(self) -> list[EntityDescriptor]:
         return list(self._entities.values())
 
+    def remove_entity(self, entity_id: str) -> bool:
+        return self._entities.pop(entity_id, None) is not None
+
+    def remove_device(self, device_id: str) -> bool:
+        return self._devices.pop(device_id, None) is not None
+
+    def remove_by_prefix(self, prefix: str) -> None:
+        for entity_id in [key for key in self._entities if key.startswith(prefix)]:
+            del self._entities[entity_id]
+
+        for device_id in [key for key in self._devices if key.startswith(prefix)]:
+            del self._devices[device_id]
+
     def device_count(self) -> int:
         return len(self._devices)
 

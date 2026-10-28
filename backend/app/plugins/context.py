@@ -10,6 +10,8 @@ from app.domain.device import DeviceDescriptor
 from app.domain.entity import EntityDescriptor
 from app.domain.events import (
     DeviceAvailabilityEvent,
+    DeviceRegisteredEvent,
+    EntityRegisteredEvent,
     EventBus,
     NeighborReportEvent,
     StateChangedEvent,
@@ -18,6 +20,7 @@ from app.domain.state import EntityState
 from app.domain.topology import Neighbor
 from app.plugins.catalog import EntityCatalog
 from app.plugins.contract import IntegrationContext
+from app.plugins.state_store import StateStore
 
 
 class BaseIntegrationContext(IntegrationContext):
@@ -33,18 +36,21 @@ class BaseIntegrationContext(IntegrationContext):
         config: Mapping[str, Any],
         catalog: EntityCatalog,
         bus: EventBus,
+        state_store: StateStore | None = None,
+        instance: str = "",
     ) -> None:
         self.integration_name = integration_name
+        self.instance = instance
         self._config: dict[str, Any] = dict(config)
         self._catalog = catalog
         self._bus = bus
+        self._state_store = state_store or StateStore()
 
         self._logger = logging.getLogger(
             f"app.integrations.{integration_name}",
         )
 
-        # 该集成实例内的实体最新状态与设备在线状态(用于事件生成与去抖)
-        self._last_states: dict[str, EntityState] = {}
+        # 该集成实例内的设备在线状态(用于事件去抖)
         self._availability: dict[str, bool] = {}
 
     @property
@@ -63,6 +69,13 @@ class BaseIntegrationContext(IntegrationContext):
 
         self._catalog.add_device(normalized)
 
+        await self._bus.publish(
+            DeviceRegisteredEvent(
+                source=self.integration_name,
+                device=normalized,
+            ),
+        )
+
         return normalized
 
     async def register_entity(
@@ -72,6 +85,13 @@ class BaseIntegrationContext(IntegrationContext):
         normalized = self._normalize_entity(entity)
 
         self._catalog.add_entity(normalized)
+
+        await self._bus.publish(
+            EntityRegisteredEvent(
+                source=self.integration_name,
+                entity=normalized,
+            ),
+        )
 
         return normalized
 
@@ -83,7 +103,7 @@ class BaseIntegrationContext(IntegrationContext):
         entity = self._normalize_entity(entity)
 
         entity_id = entity.entity_id
-        old = self._last_states.get(entity_id)
+        old = self._state_store.get(entity_id)
 
         await self._bus.publish(
             StateChangedEvent(
@@ -94,7 +114,7 @@ class BaseIntegrationContext(IntegrationContext):
             ),
         )
 
-        self._last_states[entity_id] = state
+        self._state_store.set(entity_id, state)
 
     async def emit_device_availability(
         self,
@@ -136,22 +156,30 @@ class BaseIntegrationContext(IntegrationContext):
         self,
         entity: EntityDescriptor,
     ) -> EntityDescriptor:
-        if entity.integration == self.integration_name:
+        if (
+            entity.integration == self.integration_name
+            and entity.instance == self.instance
+        ):
             return entity
 
         return dataclasses.replace(
             entity,
             integration=self.integration_name,
+            instance=self.instance,
         )
 
     def _normalize_device(
         self,
         device: DeviceDescriptor,
     ) -> DeviceDescriptor:
-        if device.integration == self.integration_name:
+        if (
+            device.integration == self.integration_name
+            and device.instance == self.instance
+        ):
             return device
 
         return dataclasses.replace(
             device,
             integration=self.integration_name,
+            instance=self.instance,
         )

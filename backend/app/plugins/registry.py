@@ -2,9 +2,11 @@
 
 from collections.abc import Callable
 
+from app.domain.capability import CONTROL_CAPABILITIES
 from app.plugins.contract import (
     Integration,
     IntegrationContext,
+    PollingIntegration,
 )
 from app.plugins.errors import (
     IntegrationConfigError,
@@ -12,10 +14,7 @@ from app.plugins.errors import (
 )
 from app.plugins.manifest import IntegrationManifest
 
-IntegrationFactory = Callable[
-    [IntegrationContext],
-    Integration,
-]
+IntegrationFactory = Callable[[IntegrationContext], Integration]
 
 
 class IntegrationRegistry:
@@ -27,33 +26,41 @@ class IntegrationRegistry:
     """
 
     def __init__(self) -> None:
-        self._factories: dict[str, IntegrationFactory] = {}
+        self._factories: dict[str, type[Integration]] = {}
         self._manifests: dict[str, IntegrationManifest] = {}
 
-    def register(
-        self,
-        integration_cls: type[Integration],
-    ) -> None:
+    def register(self, integration_cls: type[Integration]) -> None:
         """注册一个集成类型(要求类上定义 manifest)。"""
 
-        manifest = getattr(
-            integration_cls,
-            "manifest",
-            None,
-        )
+        if not (
+            isinstance(integration_cls, type)
+            and issubclass(integration_cls, Integration)
+        ):
+            raise IntegrationConfigError(
+                f"{integration_cls!r} 不是 Integration 的子类",
+            )
+
+        manifest = getattr(integration_cls, "manifest", None)
 
         if not isinstance(manifest, IntegrationManifest):
             raise IntegrationConfigError(
-                f"{integration_cls.__name__} 缺少合法的 "
-                f"manifest ClassVar",
+                f"{integration_cls.__name__} 缺少合法的 manifest ClassVar",
             )
+
+        if issubclass(integration_cls, PollingIntegration):
+            control_capabilities = manifest.capabilities & CONTROL_CAPABILITIES
+
+            if control_capabilities:
+                names = sorted(capability.value for capability in control_capabilities)
+
+                raise IntegrationConfigError(
+                    f"只读集成 {manifest.name} 不能声明写能力: {names}",
+                )
 
         name = manifest.name
 
         if name in self._manifests:
-            raise IntegrationConfigError(
-                f"集成重复注册: {name}",
-            )
+            raise IntegrationConfigError(f"集成重复注册: {name}")
 
         self._manifests[name] = manifest
         self._factories[name] = integration_cls
@@ -68,22 +75,15 @@ class IntegrationRegistry:
         factory = self._factories.get(name)
 
         if factory is None:
-            raise UnknownIntegrationError(
-                f"未注册的集成: {name}",
-            )
+            raise UnknownIntegrationError(f"未注册的集成: {name}")
 
         return factory(context)
 
-    def manifest(
-        self,
-        name: str,
-    ) -> IntegrationManifest:
+    def manifest(self, name: str) -> IntegrationManifest:
         result = self._manifests.get(name)
 
         if result is None:
-            raise UnknownIntegrationError(
-                f"未注册的集成: {name}",
-            )
+            raise UnknownIntegrationError(f"未注册的集成: {name}")
 
         return result
 
@@ -91,6 +91,11 @@ class IntegrationRegistry:
         """全部已注册集成清单(按注册顺序)。"""
 
         return list(self._manifests.values())
+
+    def names(self) -> list[str]:
+        """全部已注册集成名(按注册顺序)。"""
+
+        return list(self._manifests)
 
     def __contains__(self, name: str) -> bool:
         return name in self._manifests

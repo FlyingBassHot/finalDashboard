@@ -1,9 +1,14 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Numeric, String
+from sqlalchemy import Boolean, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.db_types import UTCDateTime
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class HomeSettings(Base):
@@ -25,31 +30,13 @@ class HomeSettings(Base):
     # 行政区信息
     # -------------------------
 
-    country: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
-
-    province: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
-
-    city: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
-
-    district: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    province: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # 高德行政区编码
-    adcode: Mapped[str | None] = mapped_column(
-        String(20),
-        nullable=True,
-    )
+    adcode: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # -------------------------
     # 高德坐标：GCJ-02
@@ -60,7 +47,6 @@ class HomeSettings(Base):
         Numeric(10, 7),
         nullable=True,
     )
-
     gcj02_longitude: Mapped[float | None] = mapped_column(
         Numeric(10, 7),
         nullable=True,
@@ -75,16 +61,12 @@ class HomeSettings(Base):
         Numeric(10, 7),
         nullable=True,
     )
-
     longitude: Mapped[float | None] = mapped_column(
         Numeric(10, 7),
         nullable=True,
     )
 
-    timezone: Mapped[str | None] = mapped_column(
-        String(64),
-        nullable=True,
-    )
+    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     location_source: Mapped[str] = mapped_column(
         String(32),
@@ -99,14 +81,13 @@ class HomeSettings(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        UTCDateTime,
+        default=_utcnow,
         nullable=False,
     )
-
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        UTCDateTime,
+        default=_utcnow,
+        onupdate=_utcnow,
         nullable=False,
     )
-
-
-

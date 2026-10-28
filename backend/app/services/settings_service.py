@@ -1,41 +1,16 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.settings import (
-    SettingsRepository,
-)
+from app.repositories.settings import SettingsRepository
 
 
 class SettingsService:
+    def __init__(self) -> None:
+        self.repository = SettingsRepository()
 
-    def __init__(self):
+    async def get(self, db: AsyncSession):
+        return await self.repository.get_or_create(db)
 
-        self.repository = (
-            SettingsRepository()
-        )
+    async def update(self, db: AsyncSession, data: dict):
+        settings = await self.repository.get_or_create(db)
 
-    async def get(
-        self,
-        db: AsyncSession,
-    ):
-
-        return await (
-            self.repository.get_or_create(db)
-        )
-
-    async def update(
-        self,
-        db: AsyncSession,
-        data: dict,
-    ):
-
-        settings = await (
-            self.repository.get_or_create(db)
-        )
-
-        return await (
-            self.repository.update(
-                db,
-                settings,
-                data,
-            )
-        )
+        return await self.repository.update(db, settings, data)

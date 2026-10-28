@@ -28,9 +28,9 @@
 
 - `capability.py` — Capability 枚举(READONLY / ON_OFF / SET_LEVEL / ACTION)+ 写能力集合
 - `state.py` — EntityState 不可变状态快照
-- `entity.py` — EntityDescriptor 声明(entity_id 三段式)
+- `entity.py` — EntityDescriptor 声明(entity_id 四段式,含实例名)
 - `device.py` — DeviceCategory + DeviceDescriptor
 - `events.py` — DomainEvent 家族 + 进程内 EventBus(异步顺序分发)
 - `topology.py` — Neighbor 邻居记录
 
-冒烟测试:`test/test_contract.py`
+测试:`backend/tests/test_contract.py`(`cd backend && uv run pytest`)。
