@@ -1,0 +1,14 @@
+# 本地运行产物(不属于项目源码)
+
+# DSH / npm 本地缓存
+.npm-cache/
+
+# 浏览器 profile(截图等本地调试用)
+shots/
+
+# DSH 运行时抓取的临时数据(与项目无关)
+router_data/
+
+# 编辑器 / 系统
+.DS_Store
+.idea/
