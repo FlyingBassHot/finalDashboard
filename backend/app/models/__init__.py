@@ -4,6 +4,7 @@
 调用方只需 ``import app.models``，不必逐个导入。
 """
 
+from app.models.action_audit import ActionAudit
 from app.models.alert import Alert
 from app.models.device import Device
 from app.models.entity import Entity
@@ -16,6 +17,7 @@ from app.models.weather_current import WeatherCurrent
 from app.models.weather_daily import WeatherDaily
 
 __all__ = [
+    "ActionAudit",
     "Alert",
     "Device",
     "Entity",

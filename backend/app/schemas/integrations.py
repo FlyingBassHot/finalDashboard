@@ -39,6 +39,7 @@ class IntegrationManifestResponse(BaseModel):
     name: str
     display_name: str
     description: str
+    collection_mode: str
     capabilities: list[str]
     supported_categories: list[str]
     default_poll_interval_seconds: int
@@ -54,6 +55,7 @@ class IntegrationManifestResponse(BaseModel):
             name=manifest.name,
             display_name=manifest.display_name,
             description=manifest.description,
+            collection_mode=manifest.collection_mode.value,
             capabilities=sorted(
                 capability.value for capability in manifest.capabilities
             ),

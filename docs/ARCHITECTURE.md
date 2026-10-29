@@ -3,6 +3,8 @@
 > 开源家庭设备底座:统一设备抽象 + 插件化集成。
 > 状态检测、性能监控、网络拓扑、事件告警,及受限的基础控制。
 
+> 框架的中间层 / 北向契约与扩展点见 [FRAMEWORK.md](FRAMEWORK.md)。
+
 ## 1. 定位
 
 不做高度定制的自用玩具,做**通用底座**:符合形状的设备都能接入。
@@ -109,6 +111,8 @@ frontend/src/
 - `GET /api/entities/{entity_id}/state`
 - `GET /api/entities/{entity_id}/history`
 - `GET /api/topology`
+- `POST /api/entities/{entity_id}/actions` / `GET /api/action-audits`
+- `GET /api/events`（SSE）
 - `POST /api/alerts/webhook` / `GET /api/alerts` / `GET /api/alerts/{fingerprint}`
 - `GET /metrics`（Prometheus 文本）
 - `GET /api/integrations/manifests`
@@ -134,6 +138,11 @@ frontend/src/
    (变化才写 + 7 天 TTL + 定时清理)。
 5. **✅ 已完成**:`export/prometheus`(`/metrics`) → Alertmanager →
    `alerting` webhook 落库与查询闭环。
-6. **下一步**:第二类集成 `mqtt` / `homeassistant`，需先补订阅型集成基类。
-7. **存量迁移**:`collectors/`(weather / amap)改造为正式集成,走同一契约;
+6. **✅ 已完成**:第二个接入方式 `prometheus_scrape`（node_exporter 抓取，第一类只读）；
+   运行器补上连接失败自动重试（ADR-010）。
+7. **✅ 已完成（北向/中间层框架）**:动作 API + 持久化审计、SSE 实时事件、
+   实体扩展字段；契约与扩展点见 `docs/FRAMEWORK.md`。
+8. **✅ 已完成**:订阅 / 混合型集成生命周期（`collection_mode` + runner 任务监管/重连）。
+9. **下一步**:高频推送事件缓冲与每集成 config schema；之后再做 `snmp` / `mqtt`。
+10. **存量迁移**:`collectors/`(weather / amap)改造为正式集成,走同一契约;
    `frontend/src/data/devices.ts` mock 替换为真实 API。

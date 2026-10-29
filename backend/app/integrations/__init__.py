@@ -4,5 +4,8 @@
 """
 
 from app.integrations.openwrt.integration import OpenWrtIntegration
+from app.integrations.prometheus_scrape.integration import (
+    PrometheusScrapeIntegration,
+)
 
-__all__ = ["OpenWrtIntegration"]
+__all__ = ["OpenWrtIntegration", "PrometheusScrapeIntegration"]

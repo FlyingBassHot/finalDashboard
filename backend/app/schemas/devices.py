@@ -19,6 +19,7 @@ class EntitySummary(BaseModel):
     unit: str | None
     icon: str | None
     capabilities: list[str]
+    attributes: dict[str, Any] = Field(default_factory=dict)
 
 
 class DeviceResponse(BaseModel):

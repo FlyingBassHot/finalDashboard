@@ -14,9 +14,11 @@ from app.plugins.action_gateway import (
 from app.plugins.catalog import EntityCatalog
 from app.plugins.context import BaseIntegrationContext
 from app.plugins.contract import (
+    HybridIntegration,
     Integration,
     IntegrationContext,
     PollingIntegration,
+    SubscribingIntegration,
 )
 from app.plugins.errors import (
     ActionExecutionError,
@@ -25,7 +27,7 @@ from app.plugins.errors import (
     UnknownIntegrationError,
     UnsupportedActionError,
 )
-from app.plugins.manifest import IntegrationManifest
+from app.plugins.manifest import CollectionMode, IntegrationManifest
 from app.plugins.registry import (
     IntegrationRegistry,
     default_registry,
@@ -41,6 +43,8 @@ __all__ = [
     "AuditSink",
     "BaseIntegrationContext",
     "EntityCatalog",
+    "CollectionMode",
+    "HybridIntegration",
     "Integration",
     "IntegrationConfigError",
     "IntegrationContext",
@@ -48,6 +52,7 @@ __all__ = [
     "IntegrationManifest",
     "IntegrationRegistry",
     "PollingIntegration",
+    "SubscribingIntegration",
     "UnknownIntegrationError",
     "UnsupportedActionError",
     "default_registry",

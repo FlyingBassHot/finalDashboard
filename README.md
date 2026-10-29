@@ -18,6 +18,7 @@ ONVIF / DSM / Wake-on-LAN)。状态检测、性能监控、网络拓扑、事件
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 架构决策与目录总览(**先读这个**)
 - [docs/DECISIONS.md](docs/DECISIONS.md) — 开发决策记录(设备身份 / WoL / 存储)
+- [docs/FRAMEWORK.md](docs/FRAMEWORK.md) — 中间层与北向框架、扩展点与灵活性规则
 - [backend/README.md](backend/README.md) — 后端模块与 API
 - [frontend/README.md](frontend/README.md) — 前端结构与对接说明
 - 集成契约与各集成边界:`backend/app/integrations/README.md`

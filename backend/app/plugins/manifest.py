@@ -2,12 +2,26 @@
 
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 
 from app.domain.capability import Capability
 from app.domain.device import DeviceCategory
 from app.plugins.errors import IntegrationConfigError
 
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+class CollectionMode(StrEnum):
+    """集成与设备交互的触发方式。"""
+
+    POLL = "poll"
+    """框架按间隔主动拉取。"""
+
+    SUBSCRIBE = "subscribe"
+    """集成持有长连接 / 订阅，消息到达时主动上报。"""
+
+    HYBRID = "hybrid"
+    """同时需要定时刷新与长驻订阅。"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +40,9 @@ class IntegrationManifest:
 
     description: str = ""
 
+    collection_mode: CollectionMode = CollectionMode.POLL
+    """采集触发方式：poll / subscribe / hybrid。"""
+
     capabilities: frozenset[Capability] = frozenset({Capability.READONLY})
     """集成整体能力边界。只读集成只声明 READONLY。"""
 
@@ -35,7 +52,7 @@ class IntegrationManifest:
     """可接入的设备类别。"""
 
     default_poll_interval_seconds: int = 60
-    """默认轮询间隔(实例配置可覆盖)。"""
+    """默认轮询间隔(实例配置可覆盖；订阅型可忽略)。"""
 
     version: str = "0.1.0"
 
@@ -47,6 +64,19 @@ class IntegrationManifest:
             raise IntegrationConfigError(
                 f"集成名非法(需小写 snake_case): {self.name!r}",
             )
+
+        if not isinstance(self.collection_mode, CollectionMode):
+            try:
+                object.__setattr__(
+                    self,
+                    "collection_mode",
+                    CollectionMode(self.collection_mode),
+                )
+
+            except ValueError as exc:
+                raise IntegrationConfigError(
+                    f"非法 collection_mode: {self.collection_mode!r}",
+                ) from exc
 
         if not self.capabilities:
             raise IntegrationConfigError(

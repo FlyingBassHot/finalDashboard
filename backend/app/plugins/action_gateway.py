@@ -14,7 +14,7 @@
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -58,10 +58,10 @@ class ActionAuditRecord:
             )
 
 
-AuditSink = Callable[[ActionAuditRecord], None]
+AuditSink = Callable[[ActionAuditRecord], Awaitable[None]]
 
 
-def _default_audit_sink(record: ActionAuditRecord) -> None:
+async def _default_audit_sink(record: ActionAuditRecord) -> None:
     logging.getLogger("app.plugins.audit").info(
         "action audit: %s %s %s -> %s %s",
         record.integration,
@@ -103,7 +103,7 @@ class ActionGateway:
 
         # 第一关:集成级能力白名单
         if request.capability not in manifest.capabilities:
-            self._audit(
+            await self._audit(
                 ActionAuditRecord(
                     integration=manifest.name,
                     entity_id=request.entity_id,
@@ -124,7 +124,7 @@ class ActionGateway:
         )
 
         if entity is None:
-            self._audit(
+            await self._audit(
                 ActionAuditRecord(
                     integration=manifest.name,
                     entity_id=request.entity_id,
@@ -140,7 +140,7 @@ class ActionGateway:
             )
 
         if entity.integration != manifest.name:
-            self._audit(
+            await self._audit(
                 ActionAuditRecord(
                     integration=manifest.name,
                     entity_id=request.entity_id,
@@ -157,7 +157,7 @@ class ActionGateway:
             )
 
         if request.capability not in entity.capabilities:
-            self._audit(
+            await self._audit(
                 ActionAuditRecord(
                     integration=manifest.name,
                     entity_id=request.entity_id,
@@ -179,7 +179,7 @@ class ActionGateway:
             )
 
         except IntegrationError as exc:
-            self._audit(
+            await self._audit(
                 ActionAuditRecord(
                     integration=manifest.name,
                     entity_id=request.entity_id,
@@ -193,7 +193,7 @@ class ActionGateway:
             raise
 
         except Exception as exc:
-            self._audit(
+            await self._audit(
                 ActionAuditRecord(
                     integration=manifest.name,
                     entity_id=request.entity_id,
@@ -208,7 +208,7 @@ class ActionGateway:
                 f"动作执行失败: {request.action}",
             ) from exc
 
-        self._audit(
+        await self._audit(
             ActionAuditRecord(
                 integration=manifest.name,
                 entity_id=request.entity_id,

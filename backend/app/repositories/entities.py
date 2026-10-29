@@ -31,6 +31,7 @@ class EntityRepository:
         row.capabilities = sorted(
             capability.value for capability in entity.capabilities
         )
+        row.attributes = dict(entity.attributes)
         row.updated_at = utcnow()
 
         await db.flush()

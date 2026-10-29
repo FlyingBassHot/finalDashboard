@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.alerting.service import AlertService
 from app.api.alerts import _verify_token
 from app.core.config import settings
+from app.domain.events import AlertReceivedEvent, EventBus
 from app.schemas.alerts import AlertmanagerPayload
 
 
@@ -125,3 +126,23 @@ def test_webhook_token(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(HTTPException):
         _verify_token(None, None)
+
+
+async def test_alert_publishes_realtime_event(session_factory) -> None:
+    bus = EventBus()
+    events: list = []
+
+    async def collect(event) -> None:
+        events.append(event)
+
+    bus.subscribe(collect, AlertReceivedEvent)
+
+    service = AlertService()
+
+    async with session_factory() as db:
+        await service.ingest(db, _payload(), bus)
+
+    assert len(events) == 1
+    assert events[0].fingerprint == "fp-1"
+    assert events[0].status == "firing"
+    assert events[0].name == "DeviceDown"

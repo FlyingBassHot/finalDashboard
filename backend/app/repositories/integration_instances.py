@@ -108,6 +108,7 @@ class IntegrationInstanceRepository:
         *,
         started: bool = False,
         poll_ok: bool | None = None,
+        connected: bool | None = None,
         error: str | None = None,
     ) -> None:
         instance = await db.get(IntegrationInstance, instance_id)
@@ -128,6 +129,13 @@ class IntegrationInstanceRepository:
                 instance.last_error = None
             else:
                 instance.last_error = (error or "unknown error")[:500]
+
+        if connected is not None:
+            if connected:
+                instance.last_success_at = now
+                instance.last_error = None
+            else:
+                instance.last_error = (error or "subscription disconnected")[:500]
 
         instance.updated_at = now
 

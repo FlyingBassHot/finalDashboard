@@ -1,10 +1,10 @@
 """集成清单与实例的 REST 接口。"""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_runtime
 from app.core.database import get_db
-from app.plugins.runtime import Runtime
 from app.schemas.integrations import (
     IntegrationInstanceCreate,
     IntegrationInstanceResponse,
@@ -21,24 +21,12 @@ router = APIRouter(
 service = IntegrationService()
 
 
-def _runtime(request: Request) -> Runtime:
-    runtime = getattr(request.app.state, "runtime", None)
-
-    if not isinstance(runtime, Runtime):
-        raise HTTPException(
-            status_code=503,
-            detail="Runtime is not ready",
-        )
-
-    return runtime
-
-
 @router.get(
     "/manifests",
     response_model=list[IntegrationManifestResponse],
 )
 async def list_manifests(request: Request):
-    runtime = _runtime(request)
+    runtime = get_runtime(request)
 
     return [
         IntegrationManifestResponse.from_manifest(manifest)
@@ -77,7 +65,7 @@ async def create_instance(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    runtime = _runtime(request)
+    runtime = get_runtime(request)
 
     return await service.create_instance(
         db,
@@ -97,7 +85,7 @@ async def update_instance(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    runtime = _runtime(request)
+    runtime = get_runtime(request)
 
     return await service.update_instance(
         db,
@@ -116,7 +104,7 @@ async def delete_instance(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    runtime = _runtime(request)
+    runtime = get_runtime(request)
 
     await service.delete_instance(db, instance_id, runtime.runner)
 

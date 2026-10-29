@@ -153,3 +153,94 @@ node_exporter 与 WoL。若按「集成 + key」生成 `device_id`，同一物�
 
 **后果**：实现简单且重启不丢数据；抓取频率高时会给 SQLite 带来查询压力，
 但家庭规模下可接受。若将来指标量变大，再考虑缓存或专用导出器。
+
+---
+
+## ADR-010 · 实例连接失败自动重试，连接过程串行化
+
+**状态**：已采纳
+
+**背景**：早期运行器在 `setup()` / `discover()` 失败时直接放弃实例，不调度轮询。
+路由器或 exporter 若在服务启动时恰好离线，实例会一直失效，直到服务或实例被手动重启。
+
+**决策**：
+
+- 连接失败时实例仍保留在运行列表并调度轮询；每次轮询先尝试连接，成功后再采集；
+  错误写入 `last_error`（`connect failed: ...`）。
+- 每个运行实例持有一把连接锁：启动时的连接与调度器触发的第一次轮询不会并发连接，
+  避免同一设备被两次注册。
+- 连接期间实例被停止或删除，连接完成后立即关闭新建的集成对象，不留下泄漏的客户端。
+
+**后果**：配置错误（如缺少 url）也会按间隔重试并持续记录错误；这是有意的，
+错误在 `last_error` 与 `homehub_integration_healthy` 中可见，修正配置后 PATCH 即可恢复。
+事件总线仍然只记录 handler 异常、不中断流程：持久化失败需要通过日志与指标发现，
+这是后续需要补强的观测点。
+
+---
+
+## ADR-011 · 实时事件：传输无关 Hub + SSE 适配器
+
+**状态**：已采纳
+
+**决策**：
+
+- 领域事件先进入 `RealtimeHub`，由订阅队列分发；SSE 只是其中一个传输适配器；
+- 事件类型：`state_changed`、`device_availability`、`neighbor_report`、
+  `device_registered`、`entity_registered`、`alert_received`；
+- 告警落库后通过 `AlertReceivedEvent` 进入同一总线，不另建通知机制；
+- 慢消费者队列满时丢弃最旧事件，保证实时性而不是阻塞生产端。
+
+**后果**：将来换 WebSocket 只需替换 API 层适配器；北向事件结构保持稳定。
+
+---
+
+## ADR-012 · 动作审计持久化，异步 sink 不阻断动作
+
+**状态**：已采纳
+
+**决策**：
+
+- `ActionGateway` 的审计 sink 改为异步接口；
+- 运行时注入 `DatabaseAuditSink`，把允许/拒绝/失败写入 `action_audits`；
+- 审计写失败只记录日志，不阻断动作本身；
+- 提供 `GET /api/action-audits` 查询。
+
+**后果**：写通道的每一次尝试都可追溯；代价是每个动作多一次数据库写入。
+
+---
+
+## ADR-013 · 实体级 attributes 作为协议扩展通道
+
+**状态**：已采纳
+
+**决策**：
+
+- `EntityDescriptor.attributes` 是 JSON 扩展位，用于协议特有元数据
+  （原始字段名、采样周期、展示精度等）；
+- 北向原样透出，核心逻辑不依赖其内容；
+- 不为单个协议新增核心表字段。
+
+**后果**：南向差异不会逼着上层改表；但 attributes 不能承载核心语义，
+否则前端与业务逻辑会重新耦合到具体协议。
+
+---
+
+## ADR-014 · 采集模式：poll / subscribe / hybrid
+
+**状态**：已采纳
+
+**背景**：`poll` 是"框架定时触发一次刷新"，不是协议本身。MQTT/HA 是推送型，
+ONVIF 同时包含请求/响应、事件订阅与 RTSP 流；把推送型硬塞进 `poll` 会形成伪轮询。
+
+**决策**：
+
+- `IntegrationManifest.collection_mode` 声明 `poll` / `subscribe` / `hybrid`；
+- `PollingIntegration` 只接受 `poll`，保持只读类型约束；
+- `SubscribingIntegration` 接受 `subscribe`，`start()` 是长驻协程，`stop()` 清理；
+- `HybridIntegration` 接受 `hybrid`，同时要求 `poll()` 与 `start()`；
+- 运行器按模式决定：调度轮询任务、创建长驻 worker，或两者都做；
+- 订阅 worker 退出/异常时按指数退避重连，健康状态写入实例；
+- 订阅型的 `last_success_at` 表示"订阅循环已启动"，不是"收到最后一条消息"。
+
+**后果**：北向事件/实体/API 不变；MQTT/ONVIF 可以按各自模式接入。
+高频推送的批量写入仍未实现，是 MQTT 之前需要补的下一项。

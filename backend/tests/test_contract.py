@@ -40,12 +40,15 @@ from app.plugins import (
     ActionRequest,
     ActionResult,
     BaseIntegrationContext,
+    CollectionMode,
     EntityCatalog,
+    HybridIntegration,
     Integration,
     IntegrationConfigError,
     IntegrationManifest,
     IntegrationRegistry,
     PollingIntegration,
+    SubscribingIntegration,
     UnsupportedActionError,
 )
 
@@ -137,6 +140,13 @@ class FakeOtherActionIntegration(FakeWakeOnLanIntegration):
         supported_categories=frozenset({DeviceCategory.COMPUTER}),
         default_poll_interval_seconds=60,
     )
+
+
+def _collector(target: list):
+    async def collect(record) -> None:
+        target.append(record)
+
+    return collect
 
 
 # --------------------------------------------
@@ -321,7 +331,7 @@ async def test_gateway_rejects_readonly_integration(
     await integration.poll()
 
     audits: list = []
-    gateway = ActionGateway(catalog=catalog, audit=audits.append)
+    gateway = ActionGateway(catalog=catalog, audit=_collector(audits))
 
     with pytest.raises(UnsupportedActionError):
         await gateway.execute(
@@ -345,7 +355,7 @@ async def test_gateway_rejects_missing_entity(
     integration = registry.create("fake_wol", ctx)
 
     audits: list = []
-    gateway = ActionGateway(catalog=catalog, audit=audits.append)
+    gateway = ActionGateway(catalog=catalog, audit=_collector(audits))
 
     with pytest.raises(Exception) as exc_info:
         await gateway.execute(
@@ -383,7 +393,7 @@ async def test_gateway_rejects_entity_without_capability(
     wol = registry.create("fake_wol", wol_ctx)
 
     audits: list = []
-    gateway = ActionGateway(catalog=catalog, audit=audits.append)
+    gateway = ActionGateway(catalog=catalog, audit=_collector(audits))
 
     with pytest.raises(UnsupportedActionError):
         await gateway.execute(
@@ -426,7 +436,7 @@ async def test_gateway_rejects_foreign_entity(
     other = registry.create("fake_action_other", other_ctx)
 
     audits: list = []
-    gateway = ActionGateway(catalog=catalog, audit=audits.append)
+    gateway = ActionGateway(catalog=catalog, audit=_collector(audits))
 
     with pytest.raises(UnsupportedActionError):
         await gateway.execute(
@@ -463,7 +473,7 @@ async def test_action_executes_and_audits(
     )
 
     audits: list = []
-    gateway = ActionGateway(catalog=catalog, audit=audits.append)
+    gateway = ActionGateway(catalog=catalog, audit=_collector(audits))
 
     result = await gateway.execute(
         integration,
@@ -494,6 +504,74 @@ async def test_event_bus_type_filter(bus: EventBus) -> None:
 
     await bus.publish(StateChangedEvent())
     assert len(seen) == 1
+
+
+def test_collection_mode_must_match_base_class() -> None:
+    with pytest.raises(IntegrationConfigError):
+
+        class BadPolling(PollingIntegration):
+            manifest = IntegrationManifest(
+                name="bad_poll_mode",
+                display_name="x",
+                collection_mode=CollectionMode.SUBSCRIBE,
+            )
+
+            async def discover(self) -> list[DeviceDescriptor]:
+                return []
+
+            async def poll(self) -> None:
+                pass
+
+    with pytest.raises(IntegrationConfigError):
+
+        class BadSubscribing(SubscribingIntegration):
+            manifest = IntegrationManifest(
+                name="bad_sub_mode",
+                display_name="x",
+                collection_mode=CollectionMode.POLL,
+            )
+
+            async def discover(self) -> list[DeviceDescriptor]:
+                return []
+
+            async def start(self) -> None:
+                pass
+
+    with pytest.raises(IntegrationConfigError):
+
+        class BadHybrid(HybridIntegration):
+            manifest = IntegrationManifest(
+                name="bad_hybrid_mode",
+                display_name="x",
+                collection_mode=CollectionMode.POLL,
+            )
+
+            async def discover(self) -> list[DeviceDescriptor]:
+                return []
+
+            async def poll(self) -> None:
+                pass
+
+            async def start(self) -> None:
+                pass
+
+
+def test_subscribing_integration_allows_control_capability() -> None:
+    class WritableSub(SubscribingIntegration):
+        manifest = IntegrationManifest(
+            name="writable_sub",
+            display_name="可写订阅集成",
+            collection_mode=CollectionMode.SUBSCRIBE,
+            capabilities=frozenset({Capability.ON_OFF}),
+        )
+
+        async def discover(self) -> list[DeviceDescriptor]:
+            return []
+
+        async def start(self) -> None:
+            pass
+
+    assert WritableSub.manifest.collection_mode is CollectionMode.SUBSCRIBE
 
 
 if __name__ == "__main__":

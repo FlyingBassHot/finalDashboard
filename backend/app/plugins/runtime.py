@@ -4,11 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.events import EventBus
 from app.history.recorder import HistoryRecorder
+from app.plugins.action_gateway import ActionGateway
+from app.plugins.audit import DatabaseAuditSink
 from app.plugins.catalog import EntityCatalog
 from app.plugins.persistence import PersistenceSubscriber
 from app.plugins.registry import IntegrationRegistry, default_registry
 from app.plugins.runner import IntegrationRunner, SchedulerLike
 from app.plugins.state_store import StateStore
+from app.realtime import RealtimeHub
 from app.topology.recorder import TopologyRecorder
 
 SessionFactory = async_sessionmaker[AsyncSession]
@@ -25,6 +28,14 @@ class Runtime:
         self.catalog = EntityCatalog()
         self.bus = EventBus()
         self.state_store = StateStore()
+
+        self.realtime = RealtimeHub()
+        self.realtime.register(self.bus)
+
+        self.action_gateway = ActionGateway(
+            self.catalog,
+            audit=DatabaseAuditSink(session_factory),
+        )
 
         self.persistence = PersistenceSubscriber(session_factory)
         self.persistence.register(self.bus)
@@ -53,3 +64,4 @@ class Runtime:
         self.persistence.close()
         self.history.close()
         self.topology.close()
+        self.realtime.close()

@@ -76,6 +76,7 @@ def _entity_from_row(row: Entity) -> EntityDescriptor:
         capabilities=frozenset(capabilities),
         unit=row.unit,
         icon=row.icon,
+        attributes=row.attributes or {},
         integration=row.integration,
         instance=row.instance_name,
     )

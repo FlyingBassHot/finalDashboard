@@ -26,7 +26,7 @@
 > 边界:第一类原则上不做配置修改与深度控制。Wake-on-LAN 是网络层原语,
 > 作为 Ping 检测失败后的闭环唤醒动作,是唯一例外。
 
-> **当前状态**:`openwrt` 已实现（MockTransport 测试通过，待真机验证）；
+> **当前状态**:`openwrt`、`prometheus_scrape` 已实现（MockTransport 测试通过，待真机验证）；
 > `wakeonlan` 按 `docs/DECISIONS.md` ADR-002 延后，等待设备身份归并方案。
 
 ### 第二类 · 厂商智能设备(状态展示 + 基础控制)

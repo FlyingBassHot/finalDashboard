@@ -5,7 +5,7 @@
 """
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -64,6 +64,18 @@ class NeighborReportEvent(DomainEvent):
 
     device_id: str = ""
     neighbors: tuple[Neighbor, ...] = ()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AlertReceivedEvent(DomainEvent):
+    """Alertmanager 告警落库后的实时通知。"""
+
+    fingerprint: str = ""
+    name: str = ""
+    status: str = ""
+    severity: str = ""
+    summary: str | None = None
+    labels: Mapping[str, str] = field(default_factory=dict)
 
 
 EventHandler = Callable[[DomainEvent], Awaitable[None]]

@@ -27,7 +27,7 @@ from app.plugins.errors import (
     IntegrationConfigError,
     UnsupportedActionError,
 )
-from app.plugins.manifest import IntegrationManifest
+from app.plugins.manifest import CollectionMode, IntegrationManifest
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +165,12 @@ class PollingIntegration(Integration):
         manifest = getattr(cls, "manifest", None)
 
         if isinstance(manifest, IntegrationManifest):
+            if manifest.collection_mode is not CollectionMode.POLL:
+                raise IntegrationConfigError(
+                    f"PollingIntegration {manifest.name} 的 collection_mode "
+                    f"必须是 poll，收到 {manifest.collection_mode.value}",
+                )
+
             control_capabilities = manifest.capabilities & CONTROL_CAPABILITIES
 
             if control_capabilities:
@@ -187,3 +193,68 @@ class PollingIntegration(Integration):
     @abstractmethod
     async def poll(self) -> None:
         """周期采集:register / emit 设备与实体状态。"""
+
+
+class SubscribingIntegration(Integration):
+    """推送型集成基类（MQTT / WebSocket 等）。
+
+    ``start()`` 是一个长驻协程：连接、订阅、收到消息时调用
+    ``context.emit_state`` 等；连接断开可以抛异常，由运行器按退避重连。
+    运行器停止实例时会取消该任务，并调用 ``stop()`` 做清理。
+
+    与 PollingIntegration 不同，本类不限制写能力——第二类设备可能需要
+    on_off / set_level，是否允许仍由 manifest 与 ActionGateway 决定。
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
+        manifest = getattr(cls, "manifest", None)
+
+        if (
+            isinstance(manifest, IntegrationManifest)
+            and manifest.collection_mode is not CollectionMode.SUBSCRIBE
+        ):
+            raise IntegrationConfigError(
+                f"SubscribingIntegration {manifest.name} 的 collection_mode "
+                f"必须是 subscribe，收到 {manifest.collection_mode.value}",
+            )
+
+    @abstractmethod
+    async def start(self) -> None:
+        """长驻订阅循环；返回或抛异常表示本次连接结束。"""
+
+    async def stop(self) -> None:
+        """请求停止订阅（可选，默认无操作）。"""
+
+
+class HybridIntegration(Integration):
+    """混合型集成：既需要定时刷新，也需要长驻订阅（如 ONVIF）。
+
+    运行器会同时调度 ``poll()`` 并监管 ``start()`` 任务。
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
+        manifest = getattr(cls, "manifest", None)
+
+        if (
+            isinstance(manifest, IntegrationManifest)
+            and manifest.collection_mode is not CollectionMode.HYBRID
+        ):
+            raise IntegrationConfigError(
+                f"HybridIntegration {manifest.name} 的 collection_mode "
+                f"必须是 hybrid，收到 {manifest.collection_mode.value}",
+            )
+
+    @abstractmethod
+    async def poll(self) -> None:
+        """定时刷新：设备信息、健康状态等。"""
+
+    @abstractmethod
+    async def start(self) -> None:
+        """长驻订阅循环；返回或抛异常表示本次连接结束。"""
+
+    async def stop(self) -> None:
+        """请求停止订阅（可选，默认无操作）。"""

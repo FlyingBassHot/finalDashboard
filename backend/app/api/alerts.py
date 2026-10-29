@@ -3,10 +3,11 @@
 import hmac
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.alerting.service import AlertService
+from app.api.deps import get_runtime
 from app.core.config import settings
 from app.core.database import get_db
 from app.schemas.alerts import (
@@ -53,13 +54,15 @@ def _verify_token(
 )
 async def receive_webhook(
     payload: AlertmanagerPayload,
+    request: Request,
     authorization: str | None = Header(default=None),
     x_webhook_token: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
     _verify_token(authorization, x_webhook_token)
 
-    received = await service.ingest(db, payload)
+    runtime = get_runtime(request)
+    received = await service.ingest(db, payload, runtime.bus)
 
     return AlertWebhookResponse(received=received)
 

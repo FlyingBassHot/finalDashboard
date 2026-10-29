@@ -3,7 +3,7 @@
 FastAPI + SQLAlchemy (async) + SQLite。统一设备抽象与插件化集成的后端底座。
 
 当前已打通的纵切：天气 / 家庭设置 / 授时 + **设备域平台地基**
-（持久化、状态存储、实例运行器、动作网关、设备/实体/集成 API）+ **OpenWrt 只读集成**。
+（持久化、状态存储、实例运行器、动作网关、设备/实体/集成 API）+ **OpenWrt 只读集成** + **Prometheus exporter 抓取（node_exporter）**。
 
 ## 快速开始
 
@@ -57,6 +57,9 @@ EventBus ──► PersistenceSubscriber ──► SQLite（设备/实体/状态
 - 邻居关系按 `(device_id, mac)` 聚合，拓扑只展示最近活跃窗口内的链路。
 - 实例失败只影响自己：运行器记录 `last_error`，其他实例继续轮询。
 - 删除实例会同时清理它产生的设备 / 实体 / 状态 / 历史 / 邻居链路。
+- 连接（setup + discover）失败的实例不会被放弃：按轮询间隔自动重试，恢复后自动接入（ADR-010）。
+- 采集模式由 manifest 声明：`poll`（定时拉取）、`subscribe`（长驻订阅）、
+  `hybrid`（两者兼有）；订阅型失败按退避重连（ADR-014）。
 
 ## API 一览
 
@@ -136,6 +139,9 @@ curl "http://127.0.0.1:8000/api/entities/<entity_id>/history?limit=200"
 | POST | `/api/alerts/webhook` | Alertmanager webhook 接收 |
 | GET | `/api/alerts` | 最近告警，可按 `status=firing|resolved` 过滤 |
 | GET | `/api/alerts/{fingerprint}` | 单条告警 |
+| POST | `/api/entities/{entity_id}/actions` | 唯一写入口（能力校验 + 审计） |
+| GET | `/api/action-audits` | 动作审计（可按 `entity_id` 过滤） |
+| GET | `/api/events` | SSE 实时事件流（可按 `types` 过滤） |
 
 抓取与告警配置见：
 
@@ -171,6 +177,7 @@ entity_id = <integration>.<instance>.<device_key>.<entity_key>
 - 尚无天气数据 / 设备 / 实体：`404`
 - 高德 Key 未配置：`503`；上游服务异常：`502`
 - 集成未注册 / 实例名冲突：`400` / `409`
+- 动作被能力白名单拒绝：`403`；实例未运行：`409`；设备执行失败：`502`
 - 历史查询 `start > end`：`400`
 - Webhook 令牌错误：`401`
 - 运行期未就绪：`503`
@@ -196,6 +203,7 @@ backend/
 │   ├── schemas/             # Pydantic 出入参
 │   ├── services/            # 业务层
 │   ├── tasks/               # APScheduler（天气 + 历史/邻居清理）
+│   ├── realtime/            # ★ 事件广播 + SSE 序列化（已实现）
 │   ├── collectors/          # 外部数据源（open-meteo / amap）
 │   ├── utils/               # 坐标换算、时区工具
 │   ├── domain/              # ★ 领域模型（Device / Entity / Capability / Event）
@@ -214,7 +222,7 @@ backend/
 ## 开发
 
 ```bash
-uv run pytest                 # 38 项
+uv run pytest                 # 59 项
 uv run ruff check app tests
 uv run ruff format app tests
 ```
@@ -226,10 +234,15 @@ uv run ruff format app tests
 - ✅ 设备域持久化、状态存储、实例运行器、集成实例 CRUD。
 - ✅ 设备 / 实体 / 状态 / 历史只读 API。
 - ✅ OpenWrt 只读集成（MockTransport 测试；待真机验证）。
+- ✅ Prometheus exporter 抓取（node_exporter 指标映射，离线可见，身份匹配拓扑）。
 - ✅ `history`：变化才写 + 7 天 TTL + 定时清理。
 - ✅ `topology`：邻居聚合、身份匹配、图 API、活跃窗口。
 - ✅ `export/prometheus`：`/metrics` 文本指标。
 - ✅ `alerting`：Alertmanager webhook + 告警查询 + 可选共享令牌。
+- ✅ 动作 API + 持久化审计（唯一写通道）。
+- ✅ SSE 实时事件流（状态/上下线/注册/邻居/告警）。
+- ✅ 实体级 `attributes` 扩展通道（协议特有元数据，不改核心表）。
+- ✅ 订阅 / 混合型集成生命周期（`SubscribingIntegration` / `HybridIntegration`）。
 - ⬜ 第二类集成（MQTT / Home Assistant），需要订阅型基类。
 - ⬜ Wake-on-LAN（按 ADR-002 延后到身份归并之后）。
 - ⬜ `export/wot`（W3C WoT Thing Description）。

@@ -15,6 +15,7 @@ from app.domain.device import (
 )
 from app.domain.entity import EntityDescriptor
 from app.domain.events import (
+    AlertReceivedEvent,
     DeviceAvailabilityEvent,
     DeviceRegisteredEvent,
     DomainEvent,
@@ -27,6 +28,7 @@ from app.domain.state import EntityState
 from app.domain.topology import Neighbor
 
 __all__ = [
+    "AlertReceivedEvent",
     "CONTROL_CAPABILITIES",
     "Capability",
     "DeviceAvailabilityEvent",
